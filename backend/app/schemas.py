@@ -9,10 +9,33 @@ T = TypeVar("T")
 
 
 class PageResult(BaseModel, Generic[T]):
+    """列表分页结果：页码、每页条数、总数以这份返回为准。"""
+
     items: list[T]
     total: int
     page: int = 1
     size: int = 20
+    # 页码或每页条数被纠正时，在这里写明原因；无需纠正时为 None。
+    notice: str | None = None
+
+
+class ExportRecord(BaseModel):
+    """一次导出落库的记录：条件、条数与时间都可回查。"""
+
+    id: int
+    module: str
+    filters: dict[str, Any]
+    total: int
+    created_at: str
+
+
+class ExportResult(BaseModel):
+    """导出结果：按当前条件取全量，total 与列表总数同一份口径。"""
+
+    module: str
+    total: int
+    items: list[dict[str, Any]]
+    record: ExportRecord
 
 
 class ActionResult(BaseModel):

@@ -36,3 +36,10 @@ def health() -> dict[str, object]:
 def overview() -> dict[str, object]:
     """运营概览：把各业务模块的待处理量汇总成看板卡片。"""
     return store.overview()
+
+
+@app.get("/api/export_records")
+def export_records() -> dict[str, object]:
+    """导出落库记录：每次导出的条件、条数与明细快照，供回查核对。"""
+    records = store.export_records()
+    return {"total": len(records), "items": records}
