@@ -72,5 +72,23 @@ npm run dev
 
 - 每个模块的前端页面在 `frontend/src/views/<模块>/index.vue`，后端接口在
   `backend/app/routers/<模块>.py`，业务规则在 `backend/app/services/<模块>.py`。
-- 列表接口统一返回 `{ items, total, page, size }`，动作接口统一返回 `{ ok, message }`。
+- 列表统一走 `POST /api/<模块>/list`，请求体为
+  `{ keyword, status, filters, page, size, total }`；导出统一走
+  `POST /api/<模块>/export`，请求体同列表（导出当前条件下的全量数据，不分页）。
+  登记为 `POST /api/<模块>/entries`，动作为 `POST /api/<模块>/{id}/actions`，
+  明细为 `GET /api/<模块>/{id}`。
+- 列表接口统一返回 `{ items, total, page, size, notice }`，动作接口统一返回
+  `{ ok, message }`。
+- 分页与筛选口径只有一套：service 先按当前条件过滤出全量行，再由
+  `backend/app/pagination.py` 数一次总数并切片。total 冲突时以接口返回为准；
+  非法页码/每页条数在服务端校正（非法页码回第一页），原因写在 `notice` 里。
+- 导出与列表共用同一个筛选函数，导出条数 == 列表 total；每次导出都会落库，
+  可通过 `POST /api/export_records/list` 查看、`GET /api/export_records/{id}`
+  取快照核对。
+- 前端分页/筛选/缓存统一在 `frontend/src/composables/useModuleList.ts`，
+  页面共用 `frontend/src/components/ListPage.vue` 与 `Pager.vue`。最后一次成功
+  拉取的条件、页码、总数按模块存在 sessionStorage，刷新或返回时据此恢复并对账；
+  条件或翻页一变化先作废旧内容再请求，不残留上一次缓存。
+- 存量数据在 `store` 装载时按业务日期回填 `created_at`（登记时间），新登记行
+  取当前时间。
 - 状态流转只允许在 `app/services` 里改，路由层不做业务判断。

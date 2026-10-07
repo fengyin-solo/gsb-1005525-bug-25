@@ -1,61 +1,24 @@
-"""组件清洗业务规则：状态流转、字段校验与筛选口径都收在这里。"""
+"""清洗任务业务规则：状态流转与字段校验沿用本模块定义，筛选/分页/导出口径统一走基类。"""
 from __future__ import annotations
 
-from typing import Any
-
-from app.store import store
+from app.services.base import BaseModuleService
 
 MODULE = "cleaning"
-REQUIRED_FIELDS = ["任务编号", "清洗区域", "清洗方式"]
-STATUS_ORDER = ["待排期", "已排期", "作业中", "已完成"]
-ACTION_RULES = {"排期确认": "已排期", "开始作业": "作业中", "验收完成": "已完成"}
+REQUIRED_FIELDS = ['任务编号', '清洗区域', '清洗方式']
+STATUS_ORDER = ['待排期', '已排期', '作业中', '已完成']
+ACTION_RULES = {'排期确认': '已排期', '开始作业': '作业中', '验收完成': '已完成'}
 NEGATIVE_ACTIONS = []
+LIST_FIELDS = ['任务编号', '清洗区域', '清洗方式', '计划日期', '作业人员', '用水吨数', '清洗后PR值', '清洗状态']
+KEYWORD_FIELDS = ['任务编号']
+LABEL = "清洗任务"
 
 
-class CleaningService:
-    def list_entries(
-        self,
-        *,
-        keyword: str | None = None,
-        status: str | None = None,
-        page: int = 1,
-        size: int = 20,
-    ) -> tuple[list[dict[str, Any]], int]:
-        rows = store.rows(MODULE)
-        if keyword:
-            rows = [row for row in rows if keyword in str(row.get("任务编号", ""))]
-        if status:
-            rows = [row for row in rows if row.get("status") == status]
-        total = len(rows)
-        start = max(page - 1, 0) * size
-        return rows[start:start + size], total
-
-    def get_entry(self, entry_id: int) -> dict[str, Any] | None:
-        return store.find(MODULE, entry_id)
-
-    def create_entry(self, values: dict[str, Any]) -> tuple[dict[str, Any] | None, list[str]]:
-        missing = [field for field in REQUIRED_FIELDS if not str(values.get(field) or "").strip()]
-        if missing:
-            return None, missing
-        rows = store.rows(MODULE)
-        entry = {"id": max((int(row.get("id", 0)) for row in rows), default=0) + 1}
-        entry.update({field: values.get(field) for field in REQUIRED_FIELDS})
-        entry["status"] = STATUS_ORDER[0]
-        entry["pending"] = True
-        entry["abnormal"] = False
-        rows.append(entry)
-        return entry, []
-
-    def run_action(self, entry_id: int, action: str) -> tuple[dict[str, Any] | None, str]:
-        entry = store.find(MODULE, entry_id)
-        if entry is None:
-            return None, f"清洗任务 {entry_id} 不存在或已归档"
-        if action not in ACTION_RULES:
-            return None, f"动作「{action}」不属于组件清洗可执行范围"
-        target = ACTION_RULES[action]
-        if target not in STATUS_ORDER:
-            return None, f"目标状态「{target}」不在允许的状态序列里"
-        entry["status"] = target
-        entry["pending"] = target != STATUS_ORDER[-1]
-        entry["abnormal"] = action in NEGATIVE_ACTIONS
-        return entry, f"清洗任务已{action}"
+class CleaningService(BaseModuleService):
+    module = MODULE
+    required_fields = REQUIRED_FIELDS
+    status_order = STATUS_ORDER
+    action_rules = ACTION_RULES
+    negative_actions = NEGATIVE_ACTIONS
+    list_fields = LIST_FIELDS
+    keyword_fields = KEYWORD_FIELDS
+    label = LABEL

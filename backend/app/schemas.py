@@ -1,11 +1,75 @@
-"""接口出入参模型：列表分页、动作结果与各模块的明细结构。"""
+"""接口出入参模型：列表分页、导出记录、动作结果与各模块的明细结构。"""
 from __future__ import annotations
 
 from typing import Any, Generic, TypeVar
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 T = TypeVar("T")
+
+
+class ListQuery(BaseModel):
+    """列表与导出统一使用的查询体。
+
+    page/size/total 来自请求体：total 仅为前端回传的缓存总数，用于和接口实算总数
+    对账，冲突时一律以接口返回的 total 为准。page/size 允许任意入参，非法值由统一
+    分页口径在服务端校正（非法页码回到第一页并说明原因），不能直接 422 掉。
+    """
+
+    keyword: str | None = None
+    status: str | None = None
+    filters: dict[str, str] = Field(default_factory=dict)
+    page: Any = 1
+    size: Any = 20
+    total: int | None = None
+
+    @field_validator("page", mode="before")
+    @classmethod
+    def _coerce_page(cls, value: Any) -> int:
+        if isinstance(value, bool):
+            return -1
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return -1
+
+    @field_validator("size", mode="before")
+    @classmethod
+    def _coerce_size(cls, value: Any) -> int:
+        if isinstance(value, bool):
+            return 0
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return 0
+
+
+class ExportListQuery(BaseModel):
+    """导出记录列表的查询体：按模块名过滤 + 同一套分页口径。"""
+
+    module: str | None = None
+    page: Any = 1
+    size: Any = 20
+
+    @field_validator("page", mode="before")
+    @classmethod
+    def _coerce_page(cls, value: Any) -> int:
+        if isinstance(value, bool):
+            return -1
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return -1
+
+    @field_validator("size", mode="before")
+    @classmethod
+    def _coerce_size(cls, value: Any) -> int:
+        if isinstance(value, bool):
+            return 0
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return 0
 
 
 class PageResult(BaseModel, Generic[T]):
@@ -13,6 +77,7 @@ class PageResult(BaseModel, Generic[T]):
     total: int
     page: int = 1
     size: int = 20
+    notice: str = ""
 
 
 class ActionResult(BaseModel):
@@ -26,6 +91,17 @@ class EntryPayload(BaseModel):
 
     values: dict[str, Any] = Field(default_factory=dict)
     remark: str | None = None
+
+
+class ExportResult(BaseModel):
+    """导出结果：条数即列表在同一条件下的总数（同一份口径），并给出落库记录。"""
+
+    module: str
+    total: int
+    items: list[dict[str, Any]]
+    export_id: int
+    created_at: str
+    notice: str = ""
 
 
 
